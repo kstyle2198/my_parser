@@ -2,6 +2,7 @@ import pdfplumber
 from typing import Iterator
 from langchain_core.documents import Document
 from tqdm import tqdm
+from paddleocr import PaddleOCR
 from pprint import pprint
 import re
 import os
@@ -36,6 +37,7 @@ def save_pdf_to_img(path:str, file_name:str, page_num:int):  # pdf를 png 이미
         # im.draw_rects(first_page.extract_words())  # 글자에 Red Box 그리기
         save_path = f"{os.getcwd()}/images/{file_name}/{file_name}_{page_num}.png"
         im.save(save_path, format="PNG", )
+    return save_path
 
 def text_parser(path:str, page_num:int, crop:bool):   # 텍스트 파싱, A4상단 표준 크롭핑 적용 선택 가능
     with pdfplumber.open(path) as pdf:
@@ -75,16 +77,17 @@ def convert_header_to_separator(header: str) -> str:   # 테이블 첫줄 파싱
     separator = re.sub(r'[^|]+', lambda m: '-' * len(m.group(0)), header)
     return separator
 
-def table_parser(pdf_path:str, page_num:int, crop:bool) -> str:   # 테이블 파싱(마크다운 형식), A4상단 표준 크롭핑 적용 선택 가능
-    pdf = pdfplumber.open(pdf_path)
-    # Find the examined page
-    table_page = pdf.pages[page_num]
-    if crop:
-        bounding_box = (3, 70, 590, 770)   #default : (0, 0, 595, 841)
-        table_page = table_page.crop(bounding_box, relative=False, strict=True)
-    else: pass
-    tables = table_page.extract_tables(table_settings = table_settings)
-    if tables:
+def table_parser(pdf_path:str, page_num:int, crop:bool) -> list:   # 테이블 파싱(마크다운 형식), A4상단 표준 크롭핑 적용 선택 가능
+    full_table = []
+    with pdfplumber.open(pdf_path) as pdf:
+        # Find the examined page
+        table_page = pdf.pages[page_num]
+        if crop:
+            bounding_box = (3, 70, 590, 770)   #default : (0, 0, 595, 841)
+            table_page = table_page.crop(bounding_box, relative=False, strict=True)
+        else: pass
+        tables = table_page.extract_tables(table_settings = table_settings)
+        # if tables:
         for table in tables:
             table_string = ''
             # Iterate through each row of the table
@@ -99,9 +102,20 @@ def table_parser(pdf_path:str, page_num:int, crop:bool) -> str:   # 테이블 �
                     table_string+= header_line+'\n'
             # Removing the last line break
             table_string = table_string[:-1]
+            full_table.append(table_string)
+        return full_table
 
-        return table_string
-    
+
+# def get_table_bbox(path:str, page_num:int) -> list:
+#     result = []
+#     with pdfplumber.open(path) as pdf:
+#         pages = pdf.pages
+#         page = pages[page_num]
+#         for table in page.find_tables():
+#             bbox = table.bbox
+#             result.append(bbox)
+#     return result
+
 def extract_level_name(path:str) -> list:  # 폴더 구조(lv1, lv2, lv3를 metadata로 추출하는 함수)
     temp = path.split("\\")  # path 예시 : ['.\\2024\\Manual\\Guidance for Autonomous Ships_2023.pdf','.\\2024\\POS\\FWG.pdf']
     lv1 = temp[1]
@@ -114,6 +128,8 @@ def extract_level_name(path:str) -> list:  # 폴더 구조(lv1, lv2, lv3를 meta
             lv3 = temp[-1].replace(".pdf", "")
     result = [lv1, lv2, lv3]
     return result
+
+
 ### [End] Parsing Helper Functions ##############################
 
 ### [Start] Main Fucntions ###########################################################################################
@@ -135,25 +151,39 @@ def main_filepath_extractor(path:str) -> list:   # 폴더 트리를 리커시브
 
 def main_parser(path:str, crop:bool) -> Iterator[Document]:  # 메인 Parsing 함수
     full_result = []
-    file_name = path.split("\\")[-1].split(".")[0].strip() # for metadata
+    file_name = path.split("\\")[-1].split(".")[0].strip() 
     img_save_folder = os.path.join(os.getcwd(), f"images/{file_name}")  # images 폴더 생성후 그 안에 file_name폴더 생성
     create_folder_if_not_exists(img_save_folder)
+    ocr = PaddleOCR(use_angle_cls=True, lang='en')
 
     with pdfplumber.open(path) as pdf:
         page_number = 0  # for metadata
         for _ in tqdm(pdf.pages):
             
-            save_pdf_to_img(path, file_name, page_number) # pdf_to_png 
+            img_path = save_pdf_to_img(path, file_name, page_number) # pdf_to_png 
             text_result = text_parser(path, page_number, crop)  # for page_content
+
+            if len(text_result) == 0:  # 텍스트 추출 결과가 없으면, OCR 실시
+                print("이미지 OCR")
+                ocr_result = ocr.ocr(img_path)
+                for idx in range(len(ocr_result)):
+                    res = ocr_result[idx]
+                    temp_result = []
+                    for line in res:
+                        temp_result.append(line[1][0])
+                text_result = " ".join(temp_result)
+
             table_result = table_parser(path, page_number, crop)  # for page_content
-            level_names = extract_level_name(path)
+            level_names = extract_level_name(path)  # for metadata
 
             if table_result:
-                total_page_result = text_result + "\n\n" + table_result   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
-                result = Document(
-                    page_content=total_page_result,
-                    metadata={"page_number": page_number, "lv1":level_names[0], "lv2": level_names[1], "lv3": level_names[2], "source": path},
-                    )
+                total_page_result = ""
+                for table in table_result:
+                    total_page_result = text_result + "\n\n" + table   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
+                    result = Document(
+                        page_content=total_page_result,
+                        metadata={"page_number": page_number, "lv1":level_names[0], "lv2": level_names[1], "lv3": level_names[2], "source": path},
+                        )
             else:
                 result = Document(
                     page_content=text_result,
@@ -163,6 +193,7 @@ def main_parser(path:str, crop:bool) -> Iterator[Document]:  # 메인 Parsing �
             page_number += 1
         parsed_document = full_result
     return parsed_document   # langchain Document type
+
 ### [End] Main Fucntions ###########################################################################################
 
 if __name__ == "__main__":
@@ -172,11 +203,11 @@ if __name__ == "__main__":
     print(total_results)
     print()
 
-    path = total_results[1]
+    path = total_results[3]
     try:
         result = main_parser(path=path, crop=True)
     except:
         result = main_parser(path=path, crop=False)  # 크롭핑 여백의 차이가 있어서 에러 발생시
     print(type(result))
     pprint(len(result))
-    
+    pprint(result)
