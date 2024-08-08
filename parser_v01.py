@@ -71,20 +71,11 @@ table_settings={      # extract_tables method variable
     }
 
 def convert_header_to_separator(header: str) -> str:   # 테이블 첫줄 파싱후, 두번째 줄에 Header Line 추가 함수(마크다운 형식을 위한)
-    """
-    Convert a markdown table header row into a separator row.
-
-    Args:
-    header (str): The header row string.
-
-    Returns:
-    str: The separator row string.
-    """
     # Use a regex to replace each header content with the appropriate number of hyphens
     separator = re.sub(r'[^|]+', lambda m: '-' * len(m.group(0)), header)
     return separator
 
-def table_parser(pdf_path:str, page_num:int, crop:bool):   # 테이블 파싱(마크다운 형식), A4상단 표준 크롭핑 적용 선택 가능
+def table_parser(pdf_path:str, page_num:int, crop:bool) -> str:   # 테이블 파싱(마크다운 형식), A4상단 표준 크롭핑 적용 선택 가능
     pdf = pdfplumber.open(pdf_path)
     # Find the examined page
     table_page = pdf.pages[page_num]
@@ -112,7 +103,7 @@ def table_parser(pdf_path:str, page_num:int, crop:bool):   # 테이블 파싱(�
         return table_string
     
 def extract_level_name(path:str) -> list:  # 폴더 구조(lv1, lv2, lv3를 metadata로 추출하는 함수)
-    temp = path.split("\\")
+    temp = path.split("\\")  # path 예시 : ['.\\2024\\Manual\\Guidance for Autonomous Ships_2023.pdf','.\\2024\\POS\\FWG.pdf']
     lv1 = temp[1]
     if temp[2]:
         if temp[2] != temp[-1]:
@@ -181,11 +172,11 @@ if __name__ == "__main__":
     print(total_results)
     print()
 
-    path = total_results[2]
+    path = total_results[1]
     try:
         result = main_parser(path=path, crop=True)
     except:
         result = main_parser(path=path, crop=False)  # 크롭핑 여백의 차이가 있어서 에러 발생시
     print(type(result))
-    pprint(result[0])
+    pprint(len(result))
     
