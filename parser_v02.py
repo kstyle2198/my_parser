@@ -159,10 +159,11 @@ def main_parser(path:str, crop:bool) -> Iterator[Document]:  # 메인 Parsing �
     with pdfplumber.open(path) as pdf:
         page_number = 0  # for metadata
         for _ in tqdm(pdf.pages):
-            
-            img_path = save_pdf_to_img(path, file_name, page_number) # pdf_to_png 
-            text_result = text_parser(path, page_number, crop)  # for page_content
 
+            level_names = extract_level_name(path)  # for metadata
+            img_path = save_pdf_to_img(path, file_name, page_number) # for saving pdf page as png img file
+            text_result = text_parser(path, page_number, crop)  # for page_content
+            fixed_first_line = f"This page explains {level_names[2]}"  # for page_content
             if len(text_result) == 0:  # 텍스트 추출 결과가 없으면, OCR 실시
                 print("이미지 OCR")
                 ocr_result = ocr.ocr(img_path)
@@ -174,19 +175,18 @@ def main_parser(path:str, crop:bool) -> Iterator[Document]:  # 메인 Parsing �
                 text_result = " ".join(temp_result)
 
             table_result = table_parser(path, page_number, crop)  # for page_content
-            level_names = extract_level_name(path)  # for metadata
 
             if table_result:
                 total_page_result = ""
                 for table in table_result:
-                    total_page_result = text_result + "\n\n" + table   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
+                    total_page_result = fixed_first_line + "\n\n" + text_result + "\n\n" + table   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
                     result = Document(
                         page_content=total_page_result,
                         metadata={"page_number": page_number, "lv1":level_names[0], "lv2": level_names[1], "lv3": level_names[2], "source": path},
                         )
             else:
                 result = Document(
-                    page_content=text_result,
+                    page_content = fixed_first_line + "\n\n" + text_result,
                     metadata={"page_number": page_number, "lv1":level_names[0], "lv2": level_names[1], "lv3": level_names[2], "source": path},
                     )
             full_result.append(result)
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     print(total_results)
     print()
 
-    path = total_results[3]
+    path = total_results[2]
     try:
         result = main_parser(path=path, crop=True)
     except:
