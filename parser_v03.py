@@ -8,7 +8,8 @@ import re
 import os
 import pickle
 
-### [Start] File Path 추출 Helper Functions ##############################
+
+### [Start] Parsing Helper Functions ##############################
 def has_subfolders(directory) -> bool:  # 대상 폴더 디렉토리에 하위폴더가 있는지 여부를 확인하는 함수
     try:
         items = os.listdir(directory)
@@ -19,11 +20,7 @@ def has_subfolders(directory) -> bool:  # 대상 폴더 디렉토리에 하위�
     except Exception as e:
         print(f"An error occurred: {e}")
         return False
-### [End] File Path 추출 Helper Functions ##############################
     
-
-
-### [Start] Parsing Helper Functions ##############################
 def create_folder_if_not_exists(folder_path:str):  # 이미지 저장 폴더 생성
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
@@ -40,17 +37,7 @@ def save_pdf_to_img(path:str, file_name:str, page_num:int):  # pdf를 png 이미
         im.save(save_path, format="PNG", )
     return save_path
 
-def text_parser(path:str, page_num:int, crop:bool):   # 텍스트 파싱, A4상단 표준 크롭핑 적용 선택 가능
-    with pdfplumber.open(path) as pdf:
-        page = pdf.pages[page_num]
-        if crop:
-            bounding_box = (3, 70, 590, 770)   #default : (0, 0, 595, 841)
-            page = page.crop(bounding_box, relative=False, strict=True)
-        else: pass
-        result = page.extract_text(layout=False)
-    return result
-
-table_settings={      # extract_tables method variable
+table_settings={      # extract_tables method variable (깃헙 디폴트 세팅 참조)
     "vertical_strategy": "lines", 
     "horizontal_strategy": "lines",
     "explicit_vertical_lines": [],
@@ -76,10 +63,10 @@ table_settings={      # extract_tables method variable
 def convert_header_to_separator(header: str) -> str:   # 테이블 첫줄 파싱후, 두번째 줄에 Header Line 추가 함수(마크다운 형식을 위한)
     # Use a regex to replace each header content with the appropriate number of hyphens
     separator = re.sub(r'[^|]+', lambda m: '-' * max(1, len(m.group(0))), header) # max 부분 관련 구분자는 최소 1개는 들어가야 마크다운 적용
-    separator = separator.replace("||", "|-|", 1)  # 수평구분자가 최소 한개는 있어야 마크다운 적용
+    separator = separator.replace("||", "|-|", 1)  # 수평구분자가 최소 한개는 있어야 마크다운 적용(그냥 비어있으면 안됨)
     return separator
 
-def table_parser(pdf_path:str, page_num:int, crop:bool) -> list:   # 테이블 파싱(마크다운 형식), A4상단 표준 크롭핑 적용 선택 가능
+def table_parser(pdf_path:str, page_num:int, crop:bool=False) -> list:   # 테이블 파싱(마크다운 형식), A4상단 표준 크롭핑 적용 선택 가능(디폴트 false)
     full_table = []
     with pdfplumber.open(pdf_path) as pdf:
         # Find the examined page
@@ -107,17 +94,6 @@ def table_parser(pdf_path:str, page_num:int, crop:bool) -> list:   # 테이블 �
             full_table.append(table_string)
         return full_table
 
-
-# def get_table_bbox(path:str, page_num:int) -> list:
-#     result = []
-#     with pdfplumber.open(path) as pdf:
-#         pages = pdf.pages
-#         page = pages[page_num]
-#         for table in page.find_tables():
-#             bbox = table.bbox
-#             result.append(bbox)
-#     return result
-
 def extract_level_name(path:str) -> list:  # 폴더 구조(lv1, lv2, lv3를 metadata로 추출하는 함수)
     temp = path.split("\\")  # path 예시 : ['.\\2024\\Manual\\Guidance for Autonomous Ships_2023.pdf','.\\2024\\POS\\FWG.pdf']
     lv1 = temp[1]
@@ -131,14 +107,9 @@ def extract_level_name(path:str) -> list:  # 폴더 구조(lv1, lv2, lv3를 meta
     result = [lv1, lv2, lv3]
     return result
 
-
-### [End] Parsing Helper Functions ##############################
-
-### [Start] Main Fucntions ###########################################################################################
 total_results =[]
 def main_filepath_extractor(path:str) -> list:   # 폴더 트리를 리커시브하게 읽어서 전체 PDF 파일의 full 경로를 리스트에 수집 
     global total_results
-    
     all_items = os.listdir(path)
     files = [f for f in all_items if os.path.isfile(os.path.join(path, f))]
     results = [os.path.join(path, file) for file in files]
@@ -151,51 +122,6 @@ def main_filepath_extractor(path:str) -> list:   # 폴더 트리를 리커시브
             main_filepath_extractor(dir)
     return total_results
 
-def main_parser1(path:str, crop:bool) -> Iterator[Document]:  # 메인 Parsing 함수, text-extraction은 pdfplumber 적용
-    full_result = []
-    file_name = path.split("\\")[-1].split(".")[0].strip() 
-    img_save_folder = os.path.join(os.getcwd(), f"images/{file_name}")  # images 폴더 생성후 그 안에 file_name폴더 생성
-    create_folder_if_not_exists(img_save_folder)
-    ocr = PaddleOCR(use_angle_cls=True, lang='en')
-
-    with pdfplumber.open(path) as pdf:
-        page_number = 0  # for metadata
-        for _ in tqdm(pdf.pages):
-
-            level_names = extract_level_name(path)  # for metadata
-            img_path = save_pdf_to_img(path, file_name, page_number) # for saving pdf page as png img file
-            text_result = text_parser(path, page_number, crop)  # for page_content
-            fixed_first_line = f"This page explains {level_names[2]}"  # for page_content
-            if len(text_result) == 0:  # 텍스트 추출 결과가 없으면, OCR 실시
-                print("이미지 OCR")
-                ocr_result = ocr.ocr(img_path)
-                for idx in range(len(ocr_result)):
-                    res = ocr_result[idx]
-                    temp_result = []
-                    for line in res:
-                        temp_result.append(line[1][0])
-                text_result = " ".join(temp_result)
-
-            table_result = table_parser(path, page_number, crop)  # for page_content
-
-            if table_result:
-                total_page_result = ""
-                for table in table_result:
-                    total_page_result = fixed_first_line + "\n\n" + text_result + "\n\n" + table   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
-                    result = Document(
-                        page_content=total_page_result,
-                        metadata={"page_number": page_number, "lv1":level_names[0], "lv2": level_names[1], "lv3": level_names[2], "source": path},
-                        )
-            else:
-                result = Document(
-                    page_content = fixed_first_line + "\n\n" + text_result,
-                    metadata={"page_number": page_number, "lv1":level_names[0], "lv2": level_names[1], "lv3": level_names[2], "source": path},
-                    )
-            full_result.append(result)
-            page_number += 1
-        parsed_document = full_result
-    return parsed_document   # langchain Document type
-
 
 #---text extraction pdfminer.six 적용 --------------
 from io import StringIO
@@ -205,9 +131,8 @@ from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
 from pdfminer.pdfpage import PDFPage
 from pdfminer.utils import open_filename
 
-
-def iter_text_per_page(pdf_file, password='', page_numbers=None, maxpages=0,
-                 caching=True, codec='utf-8', laparams=None):
+def iter_text_per_page(pdf_file:str, password='', page_numbers=None, maxpages=0, caching=True, codec='utf-8', laparams=None):  #helper function
+    # pdfminer 텍스트 추출은 기본적으로 페이지 구분을 하지 않아, 페이지 구분 추출하는 함수 정의
     if laparams is None:
         laparams = LAParams()
 
@@ -221,7 +146,7 @@ def iter_text_per_page(pdf_file, password='', page_numbers=None, maxpages=0,
                 maxpages=maxpages,
                 password=password,
                 caching=caching,
-        ):
+                ):
             with StringIO() as output_string:
                 device = TextConverter(rsrcmgr, output_string, codec=codec,
                                        laparams=laparams)
@@ -230,36 +155,43 @@ def iter_text_per_page(pdf_file, password='', page_numbers=None, maxpages=0,
                 yield idx, output_string.getvalue()
                 idx += 1
 
-
-def parse_with_pdfminersix(path):
+def parse_with_pdfminersix(path:str):  # pdfminer로 페이지단위 텍스트 추출 메인함수
     pdf_file = path
     result = dict()
     for count, page_text in iter_text_per_page(pdf_file):
-        page_text = page_text.replace("\n", " ").replace("- ", "")  ## 줄 구분된 문장 한줄로 만들기 
+        page_text = page_text.replace("\n", " ").replace("- ", "")  ## 줄 구분(엔터)된 문장 한줄로 이어붙이기 
         result[count] = page_text
-    
-    return result
+    return result    # {페이지번호key: 내용} 형식
+### [End] Parsing Helper Functions ##############################
 
 
-def main_parser2(path:str, crop:bool) -> Iterator[Document]:  # 메인 Parsing 함수, text-extraction은 pdfminer.six 적용
+
+### [Start] Main Fucntions with pdfminer.six ###########################################################################################
+def main_parser2(path:str, crop:bool, lang:str="en") -> Iterator[Document]:  # 메인 Parsing 함수, text-extraction은 pdfminer.six 적용
+    '''
+    - pdfplumber: table, image 추출
+    - pdfminer.six: text 추출
+    - paddleocr : 이미지 pdf 줄파싱
+    - lang 후보: ['ch', 'en', 'korean', 'japan', 'chinese_cht', 'ta', 'te', 'ka', 'latin', 'arabic', 'cyrillic', 'devanagari']
+    '''
     full_result = []
     file_name = path.split("\\")[-1].split(".")[0].strip() 
     img_save_folder = os.path.join(os.getcwd(), f"images/{file_name}")  # images 폴더 생성후 그 안에 file_name폴더 생성
-    create_folder_if_not_exists(img_save_folder)
-    ocr = PaddleOCR(use_angle_cls=True, lang='en')
+    create_folder_if_not_exists(img_save_folder)  # 이미지 저장할 폴더 생성
+    ocr = PaddleOCR(use_angle_cls=True, lang=lang)
 
-    full_texts = parse_with_pdfminersix(path)  # text-extraction은 pdfminer.six 적용
+    full_texts = parse_with_pdfminersix(path)  # text-extraction은 pdfminer.six 적용, {페이지번호key: 내용} 형식 리턴
 
     with pdfplumber.open(path) as pdf:
         page_number = 0  # for metadata
         for _ in tqdm(pdf.pages):
-
             level_names = extract_level_name(path)  # for metadata
             img_path = save_pdf_to_img(path, file_name, page_number) # for saving pdf page as png img file
-
             text_result = full_texts[page_number+1] # for page_content
 
-            fixed_first_line = f"This page explains {level_names[2]}"  # for page_content
+            if lang == "en": fixed_first_line = f"This page explains {level_names[2]}"  # for page_content
+            else: fixed_first_line = f"이 문서의 제목은 {level_names[2]} 입니다."  # for page_content
+
             if len(text_result) == 0:  # 텍스트 추출 결과가 없으면, OCR 실시
                 print("이미지 OCR")
                 ocr_result = ocr.ocr(img_path)
@@ -278,60 +210,39 @@ def main_parser2(path:str, crop:bool) -> Iterator[Document]:  # 메인 Parsing �
                     total_page_result = fixed_first_line + "\n\n" + text_result + "\n\n" + table   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
                     result = Document(
                         page_content=total_page_result,
-                        metadata={"page_number": page_number, "lv1":level_names[0], "lv2": level_names[1], "lv3": level_names[2], "source": path},
+                        metadata={"Page": page_number, "First Division":level_names[0], "Second Division": level_names[1], "File Name": level_names[2], "File Path": path},
                         )
             else:
                 result = Document(
                     page_content = fixed_first_line + "\n\n" + text_result,
-                    metadata={"page_number": page_number, "lv1":level_names[0], "lv2": level_names[1], "lv3": level_names[2], "source": path},
+                    metadata={"Page": page_number, "First Division":level_names[0], "Second Division": level_names[1], "File Name": level_names[2], "File Path": path},
                     )
             full_result.append(result)
             page_number += 1
         parsed_document = full_result
     return parsed_document   # langchain Document type
+### [End] Main Fucntions with pdfminer.six ###########################################################################################
 
-### [End] Main Fucntions ###########################################################################################
+
 
 if __name__ == "__main__":
 
     lv1_dir = ".\\2024"     # 최상단 엄마 폴더
     total_results = main_filepath_extractor(path=lv1_dir)  # 모든 PDF의 Full Path를 리스트에 담기
     print(total_results)
-    # print()
-
-    total_parsed_results_pdfplumber = dict()
-    total_parsed_results_pdfminer = dict()
+    total_parsed_results_pdfminer = dict()  # 파싱결과를 저장하기 위한 빈 Dict
     
     for path in total_results:
+    
+        path = total_results[2]  # 단일 샘플 테스트시
         print(path)
-        path = total_results[3]
 
-        try:
-            result = main_parser1(path=path, crop=True)
-            title = result[0].metadata["lv3"]
-            # print(title)
-        except:
-            result = main_parser1(path=path, crop=False)  # 크롭핑 여백의 차이가 있어서 에러 발생시
-            title = result[0].metadata["lv3"]
-            # print(title)
-        total_parsed_results_pdfplumber[title] = result
-
-        try:
-            result = main_parser2(path=path, crop=True)
-            title = result[0].metadata["lv3"]
-            # print(title)
-        except:
-            result = main_parser2(path=path, crop=False)  # 크롭핑 여백의 차이가 있어서 에러 발생시
-            title = result[0].metadata["lv3"]
-            # print(title)
+        result = main_parser2(path=path, crop=False, lang="en")  # en, korean
+        title = result[0].metadata["File Name"]
+        print(title)
         total_parsed_results_pdfminer[title] = result
 
-        break
+        break   # 단일 샘플 테스트시
 
-
-
-    with open(file='parsed_docs_dict1.pickle', mode='wb') as f:
-            pickle.dump(total_parsed_results_pdfplumber, f)
-
-    with open(file='parsed_docs_dict2.pickle', mode='wb') as f:
-        pickle.dump(total_parsed_results_pdfminer, f)
+    with open(file='parsed_docs_dict.pickle', mode='wb') as f:
+            pickle.dump(total_parsed_results_pdfminer, f)
