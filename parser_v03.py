@@ -124,53 +124,109 @@ def main_filepath_extractor(path:str) -> list:   # 폴더 트리를 리커시브
 
 
 #---text extraction pdfminer.six 적용 --------------
-from io import StringIO
-from pdfminer.converter import TextConverter
-from pdfminer.layout import LAParams
-from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
-from pdfminer.pdfpage import PDFPage
-from pdfminer.utils import open_filename
+# from io import StringIO
+# from pdfminer.converter import TextConverter
+# from pdfminer.layout import LAParams
+# from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+# from pdfminer.pdfpage import PDFPage
+# from pdfminer.utils import open_filename
 
-def iter_text_per_page(pdf_file:str, password='', page_numbers=None, maxpages=0, caching=True, codec='utf-8', laparams=None):  #helper function
-    # pdfminer 텍스트 추출은 기본적으로 페이지 구분을 하지 않아, 페이지 구분 추출하는 함수 정의
-    if laparams is None:
-        laparams = LAParams()
+# def iter_text_per_page(pdf_file:str, password='', page_numbers=None, maxpages=0, caching=True, codec='utf-8', laparams=None):  #helper function
+#     # pdfminer 텍스트 추출은 기본적으로 페이지 구분을 하지 않아, 페이지 구분 추출하는 함수 정의
+#     if laparams is None:
+#         laparams = LAParams()
 
-    with open_filename(pdf_file, "rb") as fp:
-        rsrcmgr = PDFResourceManager(caching=caching)
+#     with open_filename(pdf_file, "rb") as fp:
+#         rsrcmgr = PDFResourceManager(caching=caching)
 
-        idx = 1
-        for page in PDFPage.get_pages(
-                fp,
-                page_numbers,
-                maxpages=maxpages,
-                password=password,
-                caching=caching,
-                ):
-            with StringIO() as output_string:
-                device = TextConverter(rsrcmgr, output_string, codec=codec,
-                                       laparams=laparams)
-                interpreter = PDFPageInterpreter(rsrcmgr, device)
-                interpreter.process_page(page)
-                yield idx, output_string.getvalue()
-                idx += 1
+#         idx = 1
+#         for page in PDFPage.get_pages(
+#                 fp,
+#                 page_numbers,
+#                 maxpages=maxpages,
+#                 password=password,
+#                 caching=caching,
+#                 ):
+#             with StringIO() as output_string:
+#                 device = TextConverter(rsrcmgr, output_string, codec=codec,
+#                                        laparams=laparams)
+#                 interpreter = PDFPageInterpreter(rsrcmgr, device)
+#                 interpreter.process_page(page)
+#                 yield idx, output_string.getvalue()
+#                 idx += 1
 
-def parse_with_pdfminersix(path:str):  # pdfminer로 페이지단위 텍스트 추출 메인함수
-    pdf_file = path
-    result = dict()
-    for count, page_text in iter_text_per_page(pdf_file):
-        page_text = page_text.replace("\n", " ").replace("- ", "")  ## 줄 구분(엔터)된 문장 한줄로 이어붙이기 
-        result[count] = page_text
-    return result    # {페이지번호key: 내용} 형식
+# def parse_with_pdfminersix(path:str):  # pdfminer로 페이지단위 텍스트 추출 메인함수
+#     pdf_file = path
+#     result = dict()
+#     for count, page_text in iter_text_per_page(pdf_file):
+#         page_text = page_text.replace("\n", " ").replace("- ", "")  ## 줄 구분(엔터)된 문장 한줄로 이어붙이기 
+#         result[count] = page_text
+#     return result    # {페이지번호key: 내용} 형식
 ### [End] Parsing Helper Functions ##############################
 
 
 
 ### [Start] Main Fucntions with pdfminer.six ###########################################################################################
-def main_parser2(path:str, crop:bool, lang:str="en") -> Iterator[Document]:  # 메인 Parsing 함수, text-extraction은 pdfminer.six 적용
+# def main_parser2(path:str, crop:bool, lang:str="en") -> Iterator[Document]:  # 메인 Parsing 함수, text-extraction은 pdfminer.six 적용
+#     '''
+#     - pdfplumber: table, image 추출
+#     - pdfminer.six: text 추출
+#     - paddleocr : 이미지 pdf 줄파싱
+#     - lang 후보: ['ch', 'en', 'korean', 'japan', 'chinese_cht', 'ta', 'te', 'ka', 'latin', 'arabic', 'cyrillic', 'devanagari']
+#     '''
+#     full_result = []
+#     file_name = path.split("\\")[-1].split(".")[0].strip() 
+#     img_save_folder = os.path.join(os.getcwd(), f"images/{file_name}")  # images 폴더 생성후 그 안에 file_name폴더 생성
+#     create_folder_if_not_exists(img_save_folder)  # 이미지 저장할 폴더 생성
+#     ocr = PaddleOCR(use_angle_cls=True, lang=lang)
+
+#     full_texts = parse_with_pdfminersix(path)  # text-extraction은 pdfminer.six 적용, {페이지번호key: 내용} 형식 리턴
+
+#     with pdfplumber.open(path) as pdf:
+#         page_number = 0  # for metadata
+#         for _ in tqdm(pdf.pages):
+#             level_names = extract_level_name(path)  # for metadata
+#             img_path = save_pdf_to_img(path, file_name, page_number) # for saving pdf page as png img file
+#             text_result = full_texts[page_number+1] # for page_content
+
+#             if lang == "en": fixed_first_line = f"This page explains {level_names[2]}"  # for page_content
+#             else: fixed_first_line = f"이 문서의 제목은 {level_names[2]} 입니다."  # for page_content
+
+#             if len(text_result) == 0:  # 텍스트 추출 결과가 없으면, OCR 실시
+#                 print("이미지 OCR")
+#                 ocr_result = ocr.ocr(img_path)
+#                 for idx in range(len(ocr_result)):
+#                     res = ocr_result[idx]
+#                     temp_result = []
+#                     for line in res:
+#                         temp_result.append(line[1][0])
+#                 text_result = " ".join(temp_result)
+
+#             table_result = table_parser(path, page_number, crop)  # for page_content
+
+#             if table_result:
+#                 total_page_result = ""
+#                 for table in table_result:
+#                     total_page_result = fixed_first_line + "\n\n" + text_result + "\n\n" + table   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
+#                     result = Document(
+#                         page_content=total_page_result,
+#                         metadata={"Page": page_number, "First Division":level_names[0], "Second Division": level_names[1], "File Name": level_names[2], "File Path": path},
+#                         )
+#             else:
+#                 result = Document(
+#                     page_content = fixed_first_line + "\n\n" + text_result,
+#                     metadata={"Page": page_number, "First Division":level_names[0], "Second Division": level_names[1], "File Name": level_names[2], "File Path": path},
+#                     )
+#             full_result.append(result)
+#             page_number += 1
+#         parsed_document = full_result
+#     return parsed_document   # langchain Document type
+
+from PyPDF2 import PdfReader
+def main_parser3(path:str, crop:bool, lang:str="en") -> Iterator[Document]:  # 메인 Parsing 함수, text-extraction은 pypdf2 적용
     '''
     - pdfplumber: table, image 추출
-    - pdfminer.six: text 추출
+    - pypdf2: text 추출
     - paddleocr : 이미지 pdf 줄파싱
     - lang 후보: ['ch', 'en', 'korean', 'japan', 'chinese_cht', 'ta', 'te', 'ka', 'latin', 'arabic', 'cyrillic', 'devanagari']
     '''
@@ -180,16 +236,17 @@ def main_parser2(path:str, crop:bool, lang:str="en") -> Iterator[Document]:  # �
     create_folder_if_not_exists(img_save_folder)  # 이미지 저장할 폴더 생성
     ocr = PaddleOCR(use_angle_cls=True, lang=lang)
 
-    full_texts = parse_with_pdfminersix(path)  # text-extraction은 pdfminer.six 적용, {페이지번호key: 내용} 형식 리턴
 
     with pdfplumber.open(path) as pdf:
         page_number = 0  # for metadata
         for _ in tqdm(pdf.pages):
             level_names = extract_level_name(path)  # for metadata
             img_path = save_pdf_to_img(path, file_name, page_number) # for saving pdf page as png img file
-            text_result = full_texts[page_number+1] # for page_content
+            reader = PdfReader(path)
+            page = reader.pages[page_number]
+            text_result = page.extract_text().replace("\n", " ").replace("- ", "").replace("  ", " ")
 
-            if lang == "en": fixed_first_line = f"This page explains {level_names[2]}"  # for page_content
+            if lang == "en": fixed_first_line = f"This page explains {level_names[2]}."  # for page_content
             else: fixed_first_line = f"이 문서의 제목은 {level_names[2]} 입니다."  # for page_content
 
             if len(text_result) == 0:  # 텍스트 추출 결과가 없으면, OCR 실시
@@ -207,14 +264,14 @@ def main_parser2(path:str, crop:bool, lang:str="en") -> Iterator[Document]:  # �
             if table_result:
                 total_page_result = ""
                 for table in table_result:
-                    total_page_result = fixed_first_line + "\n\n" + text_result + "\n\n" + table   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
+                    total_page_result = fixed_first_line + "\n" + text_result + "\n\n" + table   # table_result가 있으면, text_result 끝에 엔터후 이어붙이기
                     result = Document(
                         page_content=total_page_result,
                         metadata={"Page": page_number, "First Division":level_names[0], "Second Division": level_names[1], "File Name": level_names[2], "File Path": path},
                         )
             else:
                 result = Document(
-                    page_content = fixed_first_line + "\n\n" + text_result,
+                    page_content = fixed_first_line + "\n" + text_result,
                     metadata={"Page": page_number, "First Division":level_names[0], "Second Division": level_names[1], "File Name": level_names[2], "File Path": path},
                     )
             full_result.append(result)
@@ -234,10 +291,10 @@ if __name__ == "__main__":
     
     for path in total_results:
     
-        path = total_results[2]  # 단일 샘플 테스트시
+        path = total_results[-4]  # 단일 샘플 테스트시
         print(path)
 
-        result = main_parser2(path=path, crop=False, lang="en")  # en, korean
+        result = main_parser3(path=path, crop=False, lang="en")  # en, korean
         title = result[0].metadata["File Name"]
         print(title)
         total_parsed_results_pdfminer[title] = result

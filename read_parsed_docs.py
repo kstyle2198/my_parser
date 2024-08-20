@@ -9,6 +9,6 @@ print(type(parsed_results_with_pdfplumber))
 print(parsed_results_with_pdfplumber.keys())
 샘플문서명 = list(parsed_results_with_pdfplumber.keys())[0]
 print(샘플문서명)
-print(parsed_results_with_pdfplumber[샘플문서명][0])
+print(parsed_results_with_pdfplumber[샘플문서명][5])
 
 
