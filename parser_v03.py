@@ -291,7 +291,7 @@ if __name__ == "__main__":
     
     for path in total_results:
     
-        path = total_results[-4]  # 단일 샘플 테스트시
+        path = total_results[-2]  # 단일 샘플 테스트시
         print(path)
 
         result = main_parser3(path=path, crop=False, lang="en")  # en, korean
