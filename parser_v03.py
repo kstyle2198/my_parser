@@ -1,12 +1,14 @@
 import pdfplumber
 from typing import Iterator
 from langchain_core.documents import Document
-from tqdm import tqdm
 from paddleocr import PaddleOCR
 from pprint import pprint
 import re
 import os
 import pickle
+from tqdm import tqdm
+from PyPDF2 import PdfReader
+
 
 
 ### [Start] Parsing Helper Functions ##############################
@@ -222,7 +224,6 @@ def main_filepath_extractor(path:str) -> list:   # 폴더 트리를 리커시브
 #         parsed_document = full_result
 #     return parsed_document   # langchain Document type
 
-from PyPDF2 import PdfReader
 def main_parser3(path:str, crop:bool, lang:str="en") -> Iterator[Document]:  # 메인 Parsing 함수, text-extraction은 pypdf2 적용
     '''
     - pdfplumber: table, image 추출
@@ -289,17 +290,17 @@ if __name__ == "__main__":
     print(total_results)
     total_parsed_results_pdfminer = dict()  # 파싱결과를 저장하기 위한 빈 Dict
     
-    for path in total_results:
+    for path in tqdm(total_results):
     
-        path = total_results[-2]  # 단일 샘플 테스트시
-        print(path)
+        # path = total_results[-2]  # 단일 샘플 테스트시
+        # print(path)
 
         result = main_parser3(path=path, crop=False, lang="en")  # en, korean
         title = result[0].metadata["File Name"]
         print(title)
         total_parsed_results_pdfminer[title] = result
 
-        break   # 단일 샘플 테스트시
+        # break   # 단일 샘플 테스트시
 
     with open(file='parsed_docs_dict.pickle', mode='wb') as f:
             pickle.dump(total_parsed_results_pdfminer, f)
