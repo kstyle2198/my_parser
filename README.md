@@ -28,3 +28,21 @@
 |<img width="1631" height="464" alt="image" src="https://github.com/user-attachments/assets/1bb5cf6f-373e-4097-bfdb-ab07a7bb2d3d" /> |
 | ocr |
 | <img width="1641" height="438" alt="image" src="https://github.com/user-attachments/assets/6ce673f6-91d3-4d2e-bffc-1fb2e9cde633" /> |
+
+## Case 4 - Kubota Case
+
+
+
+| original |
+|:--:|
+|  <img width="612" height="788" alt="image" src="https://github.com/user-attachments/assets/cafb8555-8224-49d9-8131-1d97fceadc11" /> | 
+
+### 상단 테이블
+| base | table | ocr |
+|:--:|:--:|:--:|
+| <img width="1032" height="839" alt="image" src="https://github.com/user-attachments/assets/34910fa8-b52a-4b00-8539-c16b8668ea47" /> | <img width="1034" height="801" alt="image" src="https://github.com/user-attachments/assets/e5d94e40-6ae3-4aa3-b66e-1a43d6c0a45a" /> | <img width="1029" height="812" alt="image" src="https://github.com/user-attachments/assets/f7e5acea-32a2-4746-9482-36144f33f5fa" /> |
+
+### 하단 테이블
+| base | table | ocr |
+|:--:|:--:|:--:|
+|<img width="850" height="462" alt="image" src="https://github.com/user-attachments/assets/319936a3-22a3-4c9f-86db-aa06adfa05af" /> | <img width="850" height="253" alt="image" src="https://github.com/user-attachments/assets/f01b55f2-c513-408e-9620-6ccac0dcb9f9" /> | <img width="846" height="234" alt="image" src="https://github.com/user-attachments/assets/fc5db5c9-0e57-4f3e-94e5-3fb37d4ed081" /> |
