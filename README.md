@@ -46,3 +46,13 @@
 | base | table | ocr |
 |:--:|:--:|:--:|
 |<img width="850" height="462" alt="image" src="https://github.com/user-attachments/assets/319936a3-22a3-4c9f-86db-aa06adfa05af" /> | <img width="850" height="253" alt="image" src="https://github.com/user-attachments/assets/f01b55f2-c513-408e-9620-6ccac0dcb9f9" /> | <img width="846" height="234" alt="image" src="https://github.com/user-attachments/assets/fc5db5c9-0e57-4f3e-94e5-3fb37d4ed081" /> |
+
+
+## Case4 - Gemini2.5 Pro
+### 상단 테이블
+| Specification | Working Range | Lifting Capacity |
+|:--:|:--:|:--:|
+| <img width="722" height="652" alt="image" src="https://github.com/user-attachments/assets/a6244caf-3e0c-4e6e-9e3a-b4d218e2aa46" /> | <img width="362" height="477" alt="image" src="https://github.com/user-attachments/assets/c662740a-af5f-45bf-9514-d8b88fbd5c34" /> | <img width="707" height="427" alt="image" src="https://github.com/user-attachments/assets/313e678b-40a7-4ddb-8ed1-80c4cb3dd333" />
+ |
+
+
